@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Math Puzzle Game</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .game-container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            max-width: 900px;
+            width: 100%;
+        }
+
+        .title {
+            text-align: center;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .level-info {
+            text-align: center;
+            color: #666;
+            margin-bottom: 20px;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .numbers-container {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 50px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 15px;
+            flex-wrap: wrap;
+        }
+
+        .draggable-number {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(145deg, #a8c8ff, #7fb3ff);
+            border: 2px solid #5a9bff;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: bold;
+            color: #2c5aa0;
+            cursor: grab;
+            transition: all 0.3s ease;
+            user-select: none;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        .draggable-number:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+        }
+
+        .draggable-number:active {
+            cursor: grabbing;
+            transform: scale(0.95);
+        }
+
+        .draggable-number.dragging {
+            opacity: 0.5;
+            transform: rotate(5deg);
+        }
+
+        .equation-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            min-height: 80px;
+        }
+
+        .equation-slot {
+            width: 60px;
+            height: 60px;
+            border: 3px dashed #ccc;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            background: white;
+        }
+
+        .equation-slot.drag-over {
+            border-color: #4CAF50;
+            background: #e8f5e8;
+            transform: scale(1.05);
+        }
+
+        .equation-slot.filled {
+            background: linear-gradient(145deg, #a8c8ff, #7fb3ff);
+            border: 2px solid #5a9bff;
+            color: #2c5aa0;
+            border-style: solid;
+        }
+
+        .fixed-element {
+            width: 60px;
+            height: 60px;
+            background: #e0e0e0;
+            border: 2px solid #999;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: bold;
+            color: #555;
+        }
+
+        .message {
+            text-align: center;
+            font-size: 18px;
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            font-weight: bold;
+        }
+
+        .success {
+            background: #28a745;
+            color: white;
+            border: 1px solid #1e7e34;
+            box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
+        }
+
+        .instructions {
+            text-align: center;
+            color: #666;
+            margin-bottom: 20px;
+            font-size: 16px;
+        }
+
+        .reset-btn {
+            background: #ff6b6b;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 20px;
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+            transition: background 0.3s ease;
+        }
+
+        .reset-btn:hover {
+            background: #ff5252;
+        }
+
+        .game-complete {
+            background: linear-gradient(135deg, #ffd700, #ffed4e);
+            color: #333;
+            border: 2px solid #ffd700;
+            box-shadow: 0 8px 16px rgba(255, 215, 0, 0.4);
+            font-size: 20px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div class="title">🧮 Math Puzzle Challenge</div>
+        <div class="level-info" id="levelInfo">Level 1 of 5</div>
+        <div class="instructions">Drag the blue numbers to complete the equation!</div>
+        
+        <div class="numbers-container" id="numbersContainer"></div>
+        <div class="equation-container" id="equationContainer"></div>
+
+        <div id="message" class="message" style="display: none;"></div>
+        <button class="reset-btn" onclick="resetLevel()">Reset Level</button>
+    </div>
+
+    <script>
+        let draggedElement = null;
+        let currentLevel = 1;
+        let gameState = {
+            slots: []
+        };
+
+        const levels = {
+            1: {
+                numbers: [2, 5, 7],
+                equation: ['slot', '+', '3', '=', 'slot'],
+                slots: 2,
+                checkFunction: (slots) => {
+                    const a = parseInt(slots[0]);
+                    const b = parseInt(slots[1]);
+                    return a + 3 === b;
+                },
+                description: "Simple addition"
+            },
+            2: {
+                numbers: [1, 2, 3, 4, 5, 6, 7, 8],
+                equation: ['slot', 'slot', '+', '5', '+', '2', '=', 'slot', 'slot'],
+                slots: 4,
+                checkFunction: (slots) => {
+                    const leftNum = parseInt(slots[0] + slots[1]);
+                    const rightNum = parseInt(slots[2] + slots[3]);
+                    return leftNum + 5 + 2 === rightNum;
+                },
+                description: "Two-digit addition"
+            },
+            3: {
+                numbers: [2, 3, 4, 6, 7, 7],
+                equation: ['slot', '-', 'slot', '+', '32', '=', 'slot', '7'],
+                slots: 3,
+                checkFunction: (slots) => {
+                    const a = parseInt(slots[0]);
+                    const b = parseInt(slots[1]);
+                    const c = parseInt(slots[2]);
+                    const result = parseInt(slots[2] + '7');
+                    return (a - b + 32) === result;
+                },
+                description: "Subtraction with fixed result ending"
+            },
+            4: {
+                numbers: [1, 2, 4, 6, 7, 8, 8],
+                equation: ['slot', '*', '9', '+', 'slot', '=', '80'],
+                slots: 2,
+                checkFunction: (slots) => {
+                    const a = parseInt(slots[0]);
+                    const b = parseInt(slots[1]);
+                    return (a * 9 + b) === 80;
+                },
+                description: "Multiplication and addition"
+            },
+            5: {
+                numbers: [1, 2, 4, 6, 8, 9, 1, 6],
+                equation: ['8', '/', 'slot', '+', 'slot', 'slot', '/', '4', '=', '24'],
+                slots: 3,
+                checkFunction: (slots) => {
+                    const a = parseInt(slots[0]);
+                    const bc = parseInt(slots[1] + slots[2]);
+                    const result = (8 / a) + (bc / 4);
+                    return Math.abs(result - 24) < 0.001; // Handle floating point precision
+                },
+                description: "Division and fractions"
+            }
+        };
+
+        // Initialize game
+        document.addEventListener('DOMContentLoaded', function() {
+            loadLevel(currentLevel);
+        });
+
+        function loadLevel(level) {
+            const levelData = levels[level];
+            document.getElementById('levelInfo').textContent = `Level ${level} of 5`;
+            
+            // Clear previous state
+            gameState.slots = new Array(levelData.slots).fill('');
+            
+            // Load numbers
+            loadNumbers(levelData.numbers);
+            
+            // Load equation
+            loadEquation(levelData.equation);
+            
+            // Hide message
+            document.getElementById('message').style.display = 'none';
+        }
+
+        function loadNumbers(numbers) {
+            const container = document.getElementById('numbersContainer');
+            container.innerHTML = '';
+            
+            numbers.forEach(num => {
+                const numberElement = document.createElement('div');
+                numberElement.className = 'draggable-number';
+                numberElement.draggable = true;
+                numberElement.dataset.number = num;
+                numberElement.textContent = num;
+                
+                numberElement.addEventListener('dragstart', handleDragStart);
+                numberElement.addEventListener('dragend', handleDragEnd);
+                
+                container.appendChild(numberElement);
+            });
+        }
+
+        function loadEquation(equation) {
+            const container = document.getElementById('equationContainer');
+            container.innerHTML = '';
+            let slotIndex = 0;
+            
+            equation.forEach(element => {
+                if (element === 'slot') {
+                    const slotElement = document.createElement('div');
+                    slotElement.className = 'equation-slot';
+                    slotElement.dataset.slot = slotIndex;
+                    
+                    slotElement.addEventListener('dragover', handleDragOver);
+                    slotElement.addEventListener('dragenter', handleDragEnter);
+                    slotElement.addEventListener('dragleave', handleDragLeave);
+                    slotElement.addEventListener('drop', handleDrop);
+                    
+                    container.appendChild(slotElement);
+                    slotIndex++;
+                } else {
+                    const fixedElement = document.createElement('div');
+                    fixedElement.className = 'fixed-element';
+                    fixedElement.textContent = element;
+                    container.appendChild(fixedElement);
+                }
+            });
+        }
+
+        function handleDragStart(e) {
+            draggedElement = e.target;
+            e.target.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/html', e.target.outerHTML);
+        }
+
+        function handleDragEnd(e) {
+            e.target.classList.remove('dragging');
+        }
+
+        function handleDragOver(e) {
+            if (e.preventDefault) {
+                e.preventDefault();
+            }
+            e.dataTransfer.dropEffect = 'move';
+            return false;
+        }
+
+        function handleDragEnter(e) {
+            e.target.classList.add('drag-over');
+        }
+
+        function handleDragLeave(e) {
+            e.target.classList.remove('drag-over');
+        }
+
+        function handleDrop(e) {
+            if (e.stopPropagation) {
+                e.stopPropagation();
+            }
+
+            e.target.classList.remove('drag-over');
+
+            if (draggedElement && e.target.classList.contains('equation-slot')) {
+                const slotIndex = parseInt(e.target.dataset.slot);
+                const number = draggedElement.dataset.number;
+
+                // If slot is already filled, return the number to the container
+                if (gameState.slots[slotIndex] !== '') {
+                    returnNumberToContainer(gameState.slots[slotIndex]);
+                }
+
+                // Place the number in the slot
+                e.target.textContent = number;
+                e.target.classList.add('filled');
+                gameState.slots[slotIndex] = number;
+
+                // Remove the dragged element from the container
+                draggedElement.remove();
+
+                // Check if the equation is correct
+                checkEquation();
+            }
+
+            return false;
+        }
+
+        function returnNumberToContainer(number) {
+            const numbersContainer = document.getElementById('numbersContainer');
+            const numberElement = document.createElement('div');
+            numberElement.className = 'draggable-number';
+            numberElement.draggable = true;
+            numberElement.dataset.number = number;
+            numberElement.textContent = number;
+            
+            numberElement.addEventListener('dragstart', handleDragStart);
+            numberElement.addEventListener('dragend', handleDragEnd);
+            
+            numbersContainer.appendChild(numberElement);
+        }
+
+        function checkEquation() {
+            const isComplete = gameState.slots.every(slot => slot !== '');
+            
+            if (isComplete) {
+                const levelData = levels[currentLevel];
+                const isCorrect = levelData.checkFunction(gameState.slots);
+
+                const messageDiv = document.getElementById('message');
+                if (isCorrect) {
+                    if (currentLevel === 5) {
+                        messageDiv.textContent = '🏆 Congratulations! You completed all levels!';
+                        messageDiv.className = 'message game-complete';
+                        // Clear any previous inline styles
+                        messageDiv.style.background = '';
+                        messageDiv.style.color = '';
+                        messageDiv.style.border = '';
+                    } else {
+                        messageDiv.textContent = `🎉 Level ${currentLevel} completed! Moving to next level...`;
+                        messageDiv.className = 'message success';
+                        // Clear any previous inline styles and set success styles
+                        messageDiv.style.background = '#28a745';
+                        messageDiv.style.color = 'white';
+                        messageDiv.style.border = '1px solid #1e7e34';
+                        
+                        // Auto-advance to next level after 2 seconds
+                        setTimeout(() => {
+                            currentLevel++;
+                            loadLevel(currentLevel);
+                        }, 2000);
+                    }
+                    messageDiv.style.display = 'block';
+                } else {
+                    messageDiv.textContent = '❌ Not quite right. Try again!';
+                    messageDiv.className = 'message';
+                    messageDiv.style.display = 'block';
+                    messageDiv.style.background = '#f8d7da';
+                    messageDiv.style.color = '#721c24';
+                    messageDiv.style.border = '1px solid #f5c6cb';
+                }
+            }
+        }
+
+        function resetLevel() {
+            // Clear all slots
+            const slots = document.querySelectorAll('.equation-slot');
+            slots.forEach(slot => {
+                if (slot.classList.contains('filled')) {
+                    const number = slot.textContent;
+                    returnNumberToContainer(number);
+                    slot.textContent = '';
+                    slot.classList.remove('filled');
+                }
+            });
+
+            // Reset game state
+            const levelData = levels[currentLevel];
+            gameState.slots = new Array(levelData.slots).fill('');
+
+            // Hide message
+            document.getElementById('message').style.display = 'none';
+        }
+    </script>
+</body>
+</html>
